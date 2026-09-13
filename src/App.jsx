@@ -15,6 +15,8 @@ export default function App() {
   const [editingTaskId, setEditingTaskId] = useState(null) // → which task is currently being edited
   const [editTitle, setEditTitle] = useState('')  // → temporary text typed into the Edit input
   const [searchQuery, setSearchQuery] = useState('') // search task
+  const [dueDate, setDueDate] = useState('') // due date for task
+  const [priority, setPriority] = useState('medium') // priority for task
 
   useEffect(() => {
     loadTasks()
@@ -42,7 +44,7 @@ export default function App() {
     setError('')
     const { data, error } = await supabase
       .from('tasks')
-      .insert({ title: cleanTitle })
+      .insert({ title: cleanTitle, due_date: dueDate || null, priority: priority})
       .select()
       .single()
 
@@ -50,6 +52,8 @@ export default function App() {
     else {
       setTasks((current) => [data, ...current])
       setTitle('')
+      setDueDate('')
+      setPriority('medium')
     }
     setSaving(false)
   }
@@ -134,6 +138,16 @@ export default function App() {
             maxLength="160"
             disabled={saving}
           />
+
+          <input type="date" value={dueDate}  onChange={(event) => setDueDate(event.target.value)}
+              disabled={saving} aria-label="Due date"/>
+              <select value={priority} onChange={(event) => setPriority(event.target.value)}
+               disabled={saving} aria-label="Task priority">
+               <option value="low">Low</option>
+               <option value="medium">Medium</option>
+               <option value="high">High</option>
+             </select>
+
           <button type="submit" disabled={saving}>{saving ? 'Adding…' : 'Add task'}</button>
         </form>
         <div className="filters">
@@ -177,47 +191,76 @@ export default function App() {
           <ul className="task-list">
             {filteredTasks.map((task) => (
               <li key={task.id} className={task.completed ? 'done' : ''}>
-                <label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={task.completed}
+                  onChange={() => toggleTask(task)}
+                  aria-label={`Mark ${task.title} as ${
+                    task.completed ? 'incomplete' : 'complete'
+                  }`}
+                />
+            
+                {editingTaskId === task.id ? (
                   <input
-                    type="checkbox"
-                    checked={task.completed}
-                    onChange={() => toggleTask(task)}
-                    aria-label={`Mark ${task.title} as ${task.completed ? 'incomplete' : 'complete'}`}
+                    className="edit-input"
+                    value={editTitle}
+                    onChange={(event) => setEditTitle(event.target.value)}
+                    autoFocus
                   />
-                  
-                 {editingTaskId === task.id ? (
-                <input className="edit-input" value={editTitle}
-                       onChange={(event) => setEditTitle(event.target.value)}
-                   autoFocus/>
-                  ) : (
+                ) : (
                   <span>{task.title}</span>
+                )}
+              </label>
+            
+              {task.due_date && (
+                <span className="due-date">
+                  Due: {new Date(`${task.due_date}T00:00:00`).toLocaleDateString()}
+                </span>
               )}
-                </label>
+            
+              <span className={`priority priority-${task.priority}`}>
+                {task.priority}
+              </span>
+            
+              <div className="task-actions">
                 {editingTaskId === task.id ? (
                   <>
-                  <button type="button" onClick={() => saveEditedTask(task.id)}>Save</button>
-                   
-                   <button  type="button" onClick={() => {
-                      setEditingTaskId(null)
-                      setEditTitle('')
-                  }}
-                >
-                   Cancel
-              </button>
+                    <button type="button" onClick={() => saveEditedTask(task.id)}>
+                      Save
+                    </button>
+            
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingTaskId(null)
+                        setEditTitle('')
+                      }}
+                    >
+                      Cancel
+                    </button>
                   </>
                 ) : (
-                <button type="button" onClick={() => {
-                  setEditingTaskId(task.id)
-                  setEditTitle(task.title)
-                 }}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingTaskId(task.id)
+                      setEditTitle(task.title)
+                    }}
+                  >
+                    Edit
+                  </button>
+                )}
+            
+                <button
+                  className="delete"
+                  onClick={() => deleteTask(task.id)}
+                  aria-label={`Delete ${task.title}`}
                 >
-                Edit
-           </button>
-      )}
-                <button className="delete" onClick={() => deleteTask(task.id)} aria-label={`Delete ${task.title}`}>
                   Delete
                 </button>
-              </li>
+              </div>
+            </li>
             ))}
           </ul>
         )}
