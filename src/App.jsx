@@ -2,6 +2,52 @@
 import React from 'react'
 import { useEffect, useState } from 'react'
 import { supabase } from './supabase'
+import { DndContext, closestCenter } from '@dnd-kit/core'
+import {
+  arrayMove,
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+
+function SortableTask({ task, children }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: task.id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  }
+
+  return (
+    <li
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      className={task.completed ? 'done' : ''}
+    >
+      <button
+        type="button"
+        className="drag-handle"
+        {...listeners}
+        aria-label={`Drag ${task.title}`}
+        title="Drag to reorder"
+      >
+        ⠿
+      </button>
+
+      {children}
+    </li>
+  )
+}
 
 export default function App() {
   const [tasks, setTasks] = useState([])
@@ -17,6 +63,9 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('') // search task
   const [dueDate, setDueDate] = useState('') // due date for task
   const [priority, setPriority] = useState('medium') // priority for task
+  const [category, setCategory] = useState('personal') // category for task
+  const [darkMode, setDarkMode] = useState(false) // dark mode toggle
+  const [sortBy, setSortBy] = useState('newest') // sort tasks by newest or oldest
 
   useEffect(() => {
     loadTasks()
@@ -28,7 +77,8 @@ export default function App() {
     const { data, error } = await supabase
       .from('tasks')
       .select('*')
-      .order('created_at', { ascending: false })
+      .order('position', { ascending: true })
+      .order('title', { ascending: true })
 
     if (error) setError(error.message)
     else setTasks(data)
@@ -44,7 +94,7 @@ export default function App() {
     setError('')
     const { data, error } = await supabase
       .from('tasks')
-      .insert({ title: cleanTitle, due_date: dueDate || null, priority: priority})
+      .insert({ title: cleanTitle, due_date: dueDate || null, priority: priority,  category: category})
       .select()
       .single()
 
@@ -54,6 +104,7 @@ export default function App() {
       setTitle('')
       setDueDate('')
       setPriority('medium')
+      setCategory('personal')
     }
     setSaving(false)
   }
@@ -62,7 +113,7 @@ export default function App() {
     setError('')
     const { data, error } = await supabase
       .from('tasks')
-      .update({ completed: !task.completed })
+      .update({ completed: !task.completed,  completed_at: task.completed ? null : new Date().toISOString(), })
       .eq('id', task.id)
       .select()
       .single()
@@ -106,6 +157,37 @@ export default function App() {
     }
   }
 
+  async function handleDragEnd(event) {
+    const { active, over } = event
+  
+    if (!over || active.id === over.id) return
+  
+    const oldIndex = tasks.findIndex((task) => task.id === active.id)
+    const newIndex = tasks.findIndex((task) => task.id === over.id)
+  
+    const reorderedTasks = arrayMove(tasks, oldIndex, newIndex)
+  
+    // Update the screen immediately
+    setTasks(reorderedTasks)
+  
+    // Save the new order in Supabase
+    const results = await Promise.all(
+      reorderedTasks.map((task, index) =>
+        supabase
+          .from('tasks')
+          .update({ position: index })
+          .eq('id', task.id)
+      )
+    )
+  
+    const failedUpdate = results.find((result) => result.error)
+  
+    if (failedUpdate) {
+      setError(failedUpdate.error.message)
+      loadTasks()
+    }
+  }
+
   const filteredTasks = tasks.filter((task) => {
     const matchesFilter =
       filter === 'all' ||
@@ -122,10 +204,15 @@ export default function App() {
   const remaining = tasks.filter((task) => !task.completed).length
 
   return (
-    <main className="page">
+    <main className={`page ${darkMode ? 'dark-mode' : ''}`}>
       <section className="todo-card" aria-labelledby="page-title">
         <p className="eyebrow">SIMPLE TASK LIST</p>
-        <h1 id="page-title">My tasks</h1>
+        <div className="title-row">
+          <h1 id="page-title">My tasks</h1>
+          <button type="button" className="theme-toggle" onClick={() => setDarkMode((current) => !current)}>
+           {darkMode ? '☀️' : '🌙'}
+          </button>
+        </div>
         <p className="summary">{remaining} {remaining === 1 ? 'task' : 'tasks'} left to do</p>
 
         <form className="add-form" onSubmit={addTask}>
@@ -146,6 +233,14 @@ export default function App() {
                <option value="low">Low</option>
                <option value="medium">Medium</option>
                <option value="high">High</option>
+             </select>
+
+             <select value={category} onChange={(event) => setCategory(event.target.value)}
+              disabled={saving} aria-label="Task category">
+              <option value="work">Work</option>
+              <option value="personal">Personal</option>
+              <option value="study">Study</option>
+              <option value="shopping">Shopping</option>
              </select>
 
           <button type="submit" disabled={saving}>{saving ? 'Adding…' : 'Add task'}</button>
@@ -188,9 +283,12 @@ export default function App() {
         ) : tasks.length === 0 ? (
           <p className="empty">No tasks yet. Add your first one above.</p>
         ) : (
-          <ul className="task-list">
+          <DndContext collisionDetection={closestCenter}  onDragEnd={handleDragEnd}>
+        <SortableContext items={filteredTasks.map((task) => task.id)}
+          strategy={verticalListSortingStrategy}>
+       <ul className="task-list">
             {filteredTasks.map((task) => (
-              <li key={task.id} className={task.completed ? 'done' : ''}>
+              <SortableTask key={task.id} task={task}>
               <label>
                 <input
                   type="checkbox"
@@ -213,15 +311,27 @@ export default function App() {
                 )}
               </label>
             
-              {task.due_date && (
-                <span className="due-date">
-                  Due: {new Date(`${task.due_date}T00:00:00`).toLocaleDateString()}
-                </span>
-              )}
-            
-              <span className={`priority priority-${task.priority}`}>
-                {task.priority}
-              </span>
+              <div className="task-meta">
+           {task.due_date && (
+             <span className="due-date">
+               Due: {new Date(`${task.due_date}T00:00:00`).toLocaleDateString()}
+             </span>
+            )}
+
+            <span className={`priority priority-${task.priority}`}>
+               {task.priority}
+            </span>
+
+            <span className={`category category-${task.category}`}>
+               {task.category}
+            </span>
+
+            {task.completed && task.completed_at && (
+            <span className="completed-date">
+              Completed: {new Date(task.completed_at).toLocaleString()}
+            </span>
+             )}
+           </div>
             
               <div className="task-actions">
                 {editingTaskId === task.id ? (
@@ -260,9 +370,11 @@ export default function App() {
                   Delete
                 </button>
               </div>
-            </li>
+            </SortableTask>
             ))}
-          </ul>
+           </ul>
+         </SortableContext>
+        </DndContext>
         )}
       </section>
     </main>

@@ -3,7 +3,7 @@
 body { margin: 0; }
 button, input { font: inherit; }
 .page { min-height: 100vh; display: grid; place-items: center; padding: 24px; background: radial-gradient(circle at top, #ddd6fe, #eef2ff 50%, #f8fafc); }
-.todo-card { width: min(100%, 620px); padding: 38px; border-radius: 24px; background: rgba(255,255,255,.92); box-shadow: 0 24px 70px rgba(67,56,202,.17); }
+.todo-card { width: min(92vw, 920px); padding: 38px; border-radius: 24px; background: rgba(255, 255, 255, .92); box-shadow: 0 24px 70px rgba(67, 56, 202, .17); }
 .eyebrow { margin: 0 0 8px; color: #6366f1; font-size: .75rem; font-weight: 800; letter-spacing: .12em; }
 h1 { margin: 0; font-size: clamp(2rem, 6vw, 3rem); letter-spacing: -.06em; }
 .summary { margin: 8px 0 28px; color: #64748b; }
@@ -45,21 +45,36 @@ button:disabled { cursor: wait; opacity: .65; }
   }
 
   .task-list li {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+     "handle title actions"
+     "handle meta actions";
+    gap: 8px 16px;
+    align-items: center;
+  }
+  
+  .task-list li > label {
+    grid-area: title;
     display: flex;
     align-items: center;
     gap: 10px;
-  }
-  
-  .task-list li label {
-    flex: 1;
     min-width: 0;
   }
   
+  .task-meta {
+    grid-area: meta;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+  
   .task-actions {
+    grid-area: actions;
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-left: auto;
     white-space: nowrap;
   }
   
@@ -84,4 +99,127 @@ button:disabled { cursor: wait; opacity: .65; }
   .priority-high {
     background: #fee2e2;
     color: #b91c1c;
+  }
+
+  .category {
+    border-radius: 999px;
+    padding: 3px 8px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: capitalize;
+  }
+  
+  .category-work {
+    background: #dbeafe;
+    color: #1d4ed8;
+  }
+  
+  .category-personal {
+    background: #f3e8ff;
+    color: #7e22ce;
+  }
+  
+  .category-study {
+    background: #cffafe;
+    color: #0f766e;
+  }
+  
+  .category-shopping {
+    background: #ffedd5;
+    color: #c2410c;
+  }
+
+  .completed-date {
+    color: #15803d;
+    font-size: 0.75rem;
+    white-space: nowrap;
+  }
+
+  .theme-toggle {
+    display: block;
+    margin: 0 auto 14px 0;
+    padding: 8px 12px;
+    border: none;
+    border-radius: 10px;
+    background: #e0e7ff;
+    color: #3730a3;
+    cursor: pointer;
+    font-weight: 700;
+  }
+  
+  .page.dark-mode {
+    background: linear-gradient(135deg, #0f172a, #312e81);
+  }
+  
+  .page.dark-mode .todo-card {
+    background: rgba(15, 23, 42, 0.95);
+    color: #f8fafc;
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+  }
+  
+  .page.dark-mode h1,
+  .page.dark-mode .summary,
+  .page.dark-mode label,
+  .page.dark-mode .empty {
+    color: #f8fafc;
+  }
+  
+  .page.dark-mode input:not([type="checkbox"]),
+  .page.dark-mode select {
+    background: #1e293b;
+    color: #f8fafc;
+    border-color: #475569;
+  }
+  
+  .page.dark-mode .filters button:not(.active-filter) {
+    background: #334155;
+    color: #f8fafc;
+  }
+  
+  .page.dark-mode .task-list li {
+    border-color: #334155;
+  }
+  
+  .page.dark-mode .theme-toggle {
+    background: #312e81;
+    color: #e0e7ff;
+  }
+
+  .title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  
+  .title-row h1 {
+    margin: 0;
+  }
+  
+  .theme-toggle {
+    margin: 0;
+  }
+
+  .drag-handle {
+    grid-area: handle;
+    width: 32px;
+    min-width: 32px;
+    height: 32px;
+    padding: 0;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: #64748b;
+    box-shadow: none;
+    font-size: 20px;
+    cursor: grab;
+  }
+  
+  .drag-handle:hover {
+    background: #e0e7ff;
+    color: #4338ca;
+  }
+  
+  .drag-handle:active {
+    cursor: grabbing;
   }
